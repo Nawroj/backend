@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from db import get_db
 from models.attribute import AttributeMinimal
+from schemas.attribute import AttributeMinimalBase
 from models.event import EventMinimal
+from schemas.event import EventMinimalBase
 from routes.auth import get_current_user, User
 from typing import List
 from sqlalchemy import func, or_
@@ -137,3 +139,15 @@ async def regkey_count(
 ):
     regkey_count = db.query(AttributeMinimal).filter(AttributeMinimal.type.ilike("%regkey%")).count()
     return {"regkey_count": regkey_count}
+
+@router.get("/attribute/{value}", response_model=List[AttributeMinimalBase])
+async def get_attribute_by_value(
+    value: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    attributes = db.query(AttributeMinimal).filter(AttributeMinimal.value == value).all()
+    if not attributes:
+        raise HTTPException(status_code=404, detail="Attribute not found")
+    return attributes
+
