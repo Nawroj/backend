@@ -7,7 +7,7 @@ class AttributeMinimal(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     category = Column(String, nullable=False)
-    uuid = Column(String, ForeignKey("events_minimal.uuid"))
+    event_info = Column(String, ForeignKey("events_minimal.info"))
     type = Column(String, nullable=False)
     value = Column(String, nullable=False)
     to_ids = Column(Boolean, default=False)

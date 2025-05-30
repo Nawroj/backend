@@ -7,7 +7,6 @@ class EventMinimal(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     info = Column(String, nullable=False)
-    uuid = Column(String, unique=True, index=True)
     attribute_count = Column(Integer)
     threat_level_id = Column(Integer)
     date = Column(Date)

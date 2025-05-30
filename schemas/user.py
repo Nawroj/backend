@@ -15,7 +15,7 @@ class UserCreate(UserBase):
 
 class UserResponse(UserBase):
     id: int
-    created_at: Optional[str]
+    #created_at: Optional[str]
 
     class Config:
         from_attributes = True

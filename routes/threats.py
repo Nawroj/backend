@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from db import get_db
 from models.attribute import AttributeMinimal
 from schemas.attribute import AttributeMinimalBase
 from models.event import EventMinimal
-from schemas.event import EventMinimalBase
+from schemas.event import EventMinimalBase # Ensure this import is correct
 from routes.auth import get_current_user, User
 from typing import List
 from sqlalchemy import func, or_
@@ -14,6 +14,7 @@ router = APIRouter(
     prefix="/threats",
     tags=["Threats"]
 )
+
 class AttrCount(BaseModel):
     event: str
     count: int
@@ -146,8 +147,14 @@ async def get_attribute_by_value(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    attributes = db.query(AttributeMinimal).filter(AttributeMinimal.value == value).all()
+    # This query already uses joinedload to fetch the associated event data
+    attributes = (
+        db.query(AttributeMinimal)
+        .options(joinedload(AttributeMinimal.event))
+        .filter(AttributeMinimal.value == value)
+        .all()
+    )
     if not attributes:
-        raise HTTPException(status_code=404, detail="Attribute not found")
-    return attributes
+        raise HTTPException(status_code=404, detail=f"Attribute with value '{value}' not found")
 
+    return attributes
