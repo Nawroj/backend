@@ -19,6 +19,10 @@ class AttrCount(BaseModel):
     event: str
     count: int
 
+class EventCategory(BaseModel):
+    category: str
+    count: int
+
 @router.get("/attr_count", response_model=List[AttrCount])
 async def get_attr_counts(
     db: Session = Depends(get_db),
@@ -32,6 +36,21 @@ async def get_attr_counts(
         .all()
     )
     return [{"event": r[0], "count": r[1]} for r in results]
+
+@router.get("/event_categories", response_model=List[EventCategory])
+async def get_event_categories(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get count of attributes grouped by category"""
+    results = (
+        db.query(AttributeMinimal.category, func.count(AttributeMinimal.id).label("count"))
+        .filter(AttributeMinimal.category.isnot(None))
+        .group_by(AttributeMinimal.category)
+        .order_by(func.count(AttributeMinimal.id).desc())
+        .all()
+    )
+    return [{"category": r[0], "count": r[1]} for r in results]
 
 @router.get("/ips", response_model=List[str])
 async def get_threat_ips(
@@ -157,4 +176,4 @@ async def get_attribute_by_value(
     if not attributes:
         raise HTTPException(status_code=404, detail=f"Attribute with value '{value}' not found")
 
-    return attributes
+    return attributes 
