@@ -177,3 +177,34 @@ async def get_attribute_by_value(
         raise HTTPException(status_code=404, detail=f"Attribute with value '{value}' not found")
 
     return attributes 
+
+@router.get("/events-by-threat/{level_id}")
+async def get_events_by_threat_level(
+    level_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    from models.event import EventMinimal
+    events = (
+        db.query(EventMinimal.info)
+        .filter(EventMinimal.threat_level_id == level_id)
+        .all()
+    )
+    return [e[0] for e in events if e[0]]
+
+@router.get("/threat-level-stats")
+async def get_threat_level_stats(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    from models.event import EventMinimal
+    from sqlalchemy import func
+
+    results = (
+        db.query(EventMinimal.threat_level_id, func.count().label("event_count"))
+        .group_by(EventMinimal.threat_level_id)
+        .order_by(EventMinimal.threat_level_id)
+        .all()
+    )
+
+    return {str(level): count for level, count in results}
