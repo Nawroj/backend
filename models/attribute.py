@@ -11,7 +11,7 @@ class AttributeMinimal(Base):
     type = Column(String, nullable=False)
     value = Column(String, nullable=False)
     to_ids = Column(Boolean, default=False)
-    created_ts = Column(BigInteger)
+    created_ts = Column(String)
 
     # Relationship to event
     event = relationship("EventMinimal", back_populates="attributes")

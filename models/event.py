@@ -9,7 +9,7 @@ class EventMinimal(Base):
     info = Column(String, nullable=False)
     attribute_count = Column(Integer)
     threat_level_id = Column(Integer)
-    date = Column(Date)
+    date = Column(String)
 
     # Relationship to attributes
     attributes = relationship("AttributeMinimal", back_populates="event")
