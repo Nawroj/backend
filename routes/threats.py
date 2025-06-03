@@ -326,3 +326,20 @@ async def get_threat_level_stats(
             stats[str(level)] = count
             
     return stats
+
+
+class AttributeCountryResponse(BaseModel):
+    value: str
+    country_code: Optional[str]
+
+@router.get("/ips-with-country", response_model=List[AttributeCountryResponse])
+async def get_ips_with_country(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    start_date_str: str = None,
+    end_date_str: str = None
+):
+    query = db.query(AttributeMinimal.value, AttributeMinimal.country_code).filter(AttributeMinimal.type.ilike("%ip%"))
+    query = apply_iso_string_time_filter(query, AttributeMinimal.created_ts, start_date_str, end_date_str)
+    results = query.all()
+    return [{"value": value, "country_code": country_code} for value, country_code in results]
