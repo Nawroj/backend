@@ -36,9 +36,14 @@ def apply_iso_string_time_filter(query, column_to_filter, start_date_str: str = 
     Assumes start_date_str and end_date_str are valid ISO 8601 strings if provided.
     """
     if start_date_str:
+        # Assuming dates in DB are full ISO 8601 timestamps or at least comparable as strings
         query = query.filter(column_to_filter >= start_date_str)
     
     if end_date_str:
+        # For end_date_str, if it's just a date (YYYY-MM-DD), you might want to include the whole day
+        # This example assumes string comparison works directly.
+        # If column stores full timestamps, and end_date_str is just a date,
+        # you might need to adjust it to 'YYYY-MM-DDT23:59:59.999Z' or similar.
         query = query.filter(column_to_filter <= end_date_str)
     return query
 
@@ -47,14 +52,17 @@ def apply_iso_string_time_filter(query, column_to_filter, start_date_str: str = 
 async def get_attr_counts(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    start_date_str: str = None, # Parameter is accepted but will not be used for filtering
-    end_date_str: str = None  # Parameter is accepted but will not be used for filtering
+    start_date_str: str = None, 
+    end_date_str: str = None  
 ):
     # This endpoint is NOT date filtered as per user request for the specific chart
     query = (
         db.query(EventMinimal.info, func.sum(EventMinimal.attribute_count).label("count"))
         .filter(EventMinimal.info.isnot(None))
     )
+    # User indicated this should remain unfiltered, so apply_iso_string_time_filter is not used here.
+    # If it were to be filtered by EventMinimal.date:
+    # query = apply_iso_string_time_filter(query, EventMinimal.date, start_date_str, end_date_str)
     results = (
         query.group_by(EventMinimal.info)
         .order_by(func.sum(EventMinimal.attribute_count).desc())
@@ -249,7 +257,9 @@ async def get_attribute_by_value(
         .options(joinedload(AttributeMinimal.event))
         .filter(AttributeMinimal.value == value)
     )
-    query = apply_iso_string_time_filter(query, AttributeMinimal.created_ts, start_date_str, end_date_str)
+    # Assuming AttributeMinimal.created_ts holds the relevant date for filtering individual attributes.
+    # If filtering should be based on the linked Event's date, this would need adjustment (e.g., joining Event and filtering on Event.date).
+    query = apply_iso_string_time_filter(query, AttributeMinimal.created_ts, start_date_str, end_date_str) 
     
     attributes = query.all()
     
@@ -265,29 +275,54 @@ async def get_attribute_by_value(
 async def get_events_by_threat_level(
     level_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    start_date_str: str = None, # Added for filtering
+    end_date_str: str = None    # Added for filtering
 ):
-    from models.event import EventMinimal
-    events = (
+    # from models.event import EventMinimal # Already imported globally
+    query = (
         db.query(EventMinimal.info)
         .filter(EventMinimal.threat_level_id == level_id)
-        .all()
     )
+    # Apply date filtering based on EventMinimal.date
+    # IMPORTANT: Ensure your EventMinimal model has a 'date' field suitable for this filtering.
+    # If it's named differently (e.g., 'timestamp', 'event_date'), adjust EventMinimal.date accordingly.
+    query = apply_iso_string_time_filter(query, EventMinimal.date, start_date_str, end_date_str)
+    
+    events = query.filter(EventMinimal.info.isnot(None)).all() # Added filter for non-null info
     return [e[0] for e in events if e[0]]
+
 
 @router.get("/threat-level-stats")
 async def get_threat_level_stats(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    start_date_str: str = None, # Added for filtering
+    end_date_str: str = None    # Added for filtering
 ):
-    from models.event import EventMinimal
-    from sqlalchemy import func
+    # from models.event import EventMinimal # Already imported globally
+    # from sqlalchemy import func # Already imported globally
 
+    # Base query for threat level stats
+    query = db.query(EventMinimal.threat_level_id, func.count(EventMinimal.id).label("event_count"))
+
+    # Apply date filtering based on EventMinimal.date
+    # IMPORTANT: Ensure your EventMinimal model has a 'date' field suitable for this filtering.
+    # If it's named differently (e.g., 'timestamp', 'event_date'), adjust EventMinimal.date accordingly.
+    # The helper function assumes the column name passed is correct for the model.
+    query = apply_iso_string_time_filter(query, EventMinimal.date, start_date_str, end_date_str)
+    
     results = (
-        db.query(EventMinimal.threat_level_id, func.count().label("event_count"))
-        .group_by(EventMinimal.threat_level_id)
+        query.group_by(EventMinimal.threat_level_id)
         .order_by(EventMinimal.threat_level_id)
         .all()
     )
-
-    return {str(level): count for level, count in results}
+    
+    # Initialize counts for all levels to ensure they are present in the response
+    # even if there are no events for a particular level in the filtered range.
+    stats = {"1": 0, "2": 0, "3": 0} 
+    for level, count in results:
+        if level is not None: # Ensure level is not None before converting to string
+            stats[str(level)] = count
+            
+    return stats
