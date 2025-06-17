@@ -12,7 +12,7 @@ app.include_router(auth.router, prefix="/auth")
 app.include_router(threats.router)
 
 origins = [
-    "http://localhost:3000",
+    "https://dashboard.group32.org",
 ]
 
 app.add_middleware(
